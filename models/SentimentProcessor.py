@@ -1,4 +1,6 @@
 import re
+
+import torch
 from transformers import pipeline
 import spacy
 from torch.nn.functional import cosine_similarity
@@ -49,11 +51,20 @@ class BertSimilarity:
         inputs = self.tokenizer(sentence, return_tensors="pt")
         outputs = self.model(**inputs)
 
-        # Identify the position of the word of interest in the tokenized sequence
-        word_position = self.tokenizer.convert_tokens_to_ids(word)
-        idx = (inputs["input_ids"][0] == word_position).nonzero().squeeze().item()
+        # Tokenize the word to understand how it's broken down
+        word_tokens = self.tokenizer.tokenize(word)
+        word_ids = self.tokenizer.convert_tokens_to_ids(word_tokens)
 
-        return outputs['last_hidden_state'][0][idx]
+        # Find the positions of all tokens of the word
+        indices = [i for i, id in enumerate(inputs["input_ids"][0].tolist()) if id in word_ids]
+
+        if not indices:
+            raise ValueError(f"Word '{word}' not found in sentence.")
+
+        # Average the embeddings if the word is broken into multiple tokens
+        embeddings = torch.mean(outputs['last_hidden_state'][0, indices, :], dim=0)
+
+        return embeddings
 
     def compute_similarity(self, base_sentence, base_word, compare_sentence):
         base_embedding = self.get_word_embedding(base_sentence, base_word)
