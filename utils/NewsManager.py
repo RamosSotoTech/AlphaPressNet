@@ -1,33 +1,49 @@
 from newsapi import NewsApiClient
+from text_feature_extraction import BertFeatureExtractor
 import datetime
 import AlphaPressNet.settings as settings
 import environ
 
 
+def _filter_results(results):
+    """
+    Filters out articles with '[Removed]' attributes.
+
+    :param results: The raw results from newsapi.
+    :return: Filtered results.
+    """
+    filtered_articles = []
+    for article in results.get('articles', []):
+        if (article['title'] != '[Removed]' and article['description'] != '[Removed]'
+                and article['content'] != '[Removed]'):
+            filtered_articles.append(article)
+    results['articles'] = filtered_articles
+    return results
+
+
 class NewsManager:
-    def __init__(self):
+    def __init__(self, api_key=None, bert_model_name="yiyanghkust/finbert-tone"):
         """
         Initializes the NewsManager with environment API key.
         """
         # Initialise environment variables
         environ.Env.read_env()
-        api_key = settings.NEWSAPI_KEY
+        if not api_key:
+            api_key = settings.NEWSAPI_KEY
         self.client = NewsApiClient(api_key=api_key)
+        self.bert_feature_extractor = BertFeatureExtractor(bert_model_name)
 
-    def _filter_results(self, results):
+    def extract_article_features(self, articles):
         """
-        Filters out articles with '[Removed]' attributes.
-
-        :param results: The raw results from newsapi.
-        :return: Filtered results.
+        Extracts features from the articles using BERT.
+        :param articles: raw articles from newsapi.
+        :return: articles with features.
         """
-        filtered_articles = []
-        for article in results.get('articles', []):
-            if (article['title'] != '[Removed]' and article['description'] != '[Removed]'
-                    and article['content'] != '[Removed]'):
-                filtered_articles.append(article)
-        results['articles'] = filtered_articles
-        return results
+        for article in articles:
+            content = article['content']
+            features = self.bert_feature_extractor.extract_features(content)
+            article['features'] = features
+        return articles
 
     def get_top_headlines(self, country='us', category=None, sources=None, q=None, page_size=20, include_removed=False):
         """
@@ -43,7 +59,7 @@ class NewsManager:
         """
         headlines = self.client.get_top_headlines(country=country, category=category, sources=sources, q=q,
                                                   page_size=page_size)
-        return headlines if not include_removed else self._filter_results(headlines)
+        return headlines if not include_removed else _filter_results(headlines)
 
     def get_everything(self, q=None, sources=None, domains=None, exclude_domains=None, from_param=None, to=None,
                        language='en', sort_by='relevancy', page_size=20, include_removed=False):
@@ -67,9 +83,9 @@ class NewsManager:
         news = self.client.get_everything(q=q, sources=sources, domains=domains, exclude_domains=exclude_domains,
                                           from_param=from_param, to=to, language=language, sort_by=sort_by,
                                           page_size=page_size)
-        return news if not include_removed else self._filter_results(news)
+        return news if not include_removed else _filter_results(news)
 
-    def get_sources(self, category=None, country=None, language='en'):
+    def get_sources(self, category=None, country='us', language='en'):
         """
         Retrieves the list of news sources from newsapi.
 
