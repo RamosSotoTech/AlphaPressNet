@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.8 (AlphaPressNet)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.8 (AlphaPressNet)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="AlphaPressNet_Py39" project-jdk-type="Python SDK" />
 </project>
