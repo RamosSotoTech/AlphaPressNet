@@ -1,2 +1,5 @@
 */__pycache__/
 AlphaPressNet/.env
+*.pkl
+*.log
+*.csv

@@ -1,8 +1,9 @@
-from newsapi import NewsApiClient
+from newsapi.newsapi_client import NewsApiClient
 from text_feature_extraction import BertFeatureExtractor
 import datetime
 import AlphaPressNet.settings as settings
 import environ
+import pandas as pd
 
 
 def _filter_results(results):
@@ -21,8 +22,27 @@ def _filter_results(results):
     return results
 
 
-class NewsManager:
-    def __init__(self, api_key=None, bert_model_name="yiyanghkust/finbert-tone"):
+def extract_article_features(articles, bert_model_name="yiyanghkust/finbert-tone"):
+    """
+    Extracts features from the articles using BERT.
+    :param bert_model_name:
+    :param articles: raw articles from newsapi.
+    :return: articles with features.
+    """
+    for article in articles:
+        content = article['content']
+        if not content:
+            continue
+        bert_feature_extractor = BertFeatureExtractor(bert_model_name)
+        features = bert_feature_extractor.extract_features(content)
+        article['features'] = features
+        # todo: generalize this to any number of words
+        article['top_10_words'] = bert_feature_extractor.get_top_n_important_words(content, 10)
+    return articles
+
+
+class NewsApiClientManager:
+    def __init__(self, api_key=None):
         """
         Initializes the NewsManager with environment API key.
         """
@@ -31,19 +51,6 @@ class NewsManager:
         if not api_key:
             api_key = settings.NEWSAPI_KEY
         self.client = NewsApiClient(api_key=api_key)
-        self.bert_feature_extractor = BertFeatureExtractor(bert_model_name)
-
-    def extract_article_features(self, articles):
-        """
-        Extracts features from the articles using BERT.
-        :param articles: raw articles from newsapi.
-        :return: articles with features.
-        """
-        for article in articles:
-            content = article['content']
-            features = self.bert_feature_extractor.extract_features(content)
-            article['features'] = features
-        return articles
 
     def get_top_headlines(self, country='us', category=None, sources=None, q=None, page_size=20, include_removed=False):
         """
@@ -95,3 +102,29 @@ class NewsManager:
         :return: A dictionary containing all the available sources.
         """
         return self.client.get_sources(category=category, country=country, language=language)
+
+    def get_articles_and_features(self, *args, **kwargs):
+        # Get articles using one of your existing methods, e.g., get_everything
+        articles = self.get_everything(*args, **kwargs)
+        # Extract features from the articles
+        articles_with_features = extract_article_features(articles['articles'])
+        # Convert the articles with features to a pandas DataFrame
+        df = self._to_dataframe(articles_with_features)
+        return df
+
+    @staticmethod
+    def _to_dataframe(articles):
+        # Extracting the needed information from the articles
+        data = []
+        for article in articles:
+            info = {
+                'title': article['title'],
+                'description': article['description'],
+                'content': article['content'],
+                'features': article.get('features', None)
+            }
+            data.append(info)
+
+        # Creating a DataFrame
+        df = pd.DataFrame(data)
+        return df

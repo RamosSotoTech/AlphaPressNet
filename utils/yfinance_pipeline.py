@@ -40,8 +40,8 @@ def get_sp500_constituents():
 
 
 def build_dataset(num_samples=None, seeded=False, custom_symbols=None, standardize=True, start=None, end=None,
-                  period="1y", ma_windows=None, rsi_window=14, macd_windows=(12, 26, 9),
-                  bert_model_name="yiyanghkust/finbert-tone"):
+                  period="5y", ma_windows=None, rsi_window=14, macd_windows=(12, 26, 9),
+                  bert_model_name="yiyanghkust/finbert-tone", tokenize=True):
     symbols = custom_symbols if custom_symbols else get_sp500_constituents()
     combined_data = []
 
@@ -62,13 +62,15 @@ def build_dataset(num_samples=None, seeded=False, custom_symbols=None, standardi
     progress_bar = tqdm(total=num_samples, desc="Building Dataset", unit="stock")
 
     symbol_scalers = {}
+    text_features = {}
     for symbol in selected_symbols:
         stock_info = StockInfo(symbol, bert_model_name)
         data = stock_info.extract_features(period=period, start=start, end=end, ma_windows=ma_windows,
                                            rsi_window=rsi_window, macd_windows=macd_windows)
 
         # Add a column to identify the stock symbol in the combined dataset
-        data['Symbol'] = re.sub(r'[^a-zA-Z]', '', symbol)
+        cleaned_symbol = re.sub(r'[^a-zA-Z]', '', symbol)
+        data['Symbol'] = cleaned_symbol
         if standardize:
             # Initialize MinMaxScaler
             scaler = MinMaxScaler()
@@ -76,6 +78,10 @@ def build_dataset(num_samples=None, seeded=False, custom_symbols=None, standardi
             data[numeric_features] = scaler.fit_transform(data[numeric_features])
             symbol_scalers[symbol] = scaler
 
+        # Extract text features
+        text_features[cleaned_symbol] = stock_info.extract_text_features(tokenize=tokenize)
+
+        # Add the data to the list of dataframes
         combined_data.append(data)
         # Update the progress bar
         progress_bar.update(1)
@@ -87,9 +93,9 @@ def build_dataset(num_samples=None, seeded=False, custom_symbols=None, standardi
     combined_df = pd.concat(combined_data, ignore_index=True)
 
     if standardize:
-        return combined_df, symbol_scalers
+        return combined_df, symbol_scalers, text_features
     else:
-        return combined_df
+        return combined_df, text_features
 
 
 class StockInfo:
@@ -112,7 +118,7 @@ class StockInfo:
         return self.ticker.info.get('longName', None)
 
     def get_description(self):
-        return self.ticker.info.get('description', None)
+        return self.ticker.info.get('longBusinessSummary', None)
 
     def get_sector(self):
         return self.ticker.info.get('sector', None)
@@ -124,6 +130,9 @@ class StockInfo:
 
         # Fetch historical data using yfinance
         data = self.ticker.history(period=period, start=start, end=end, auto_adjust=True)
+
+        # Add a date column
+        data['Date'] = data.index
 
         # Calculate and add moving averages
         for window in ma_windows:
@@ -138,7 +147,7 @@ class StockInfo:
 
         return data.dropna()
 
-    def extract_text_features(self):
+    def extract_text_features(self, tokenize=True):
         description = self.get_description()
         long_name = self.get_long_name()
         industry = self.get_industry()
@@ -172,4 +181,29 @@ class StockInfo:
             f"{name_part}, with a ticker symbol {self.ticker_symbol}, operates {industry_part}{sector_part}. "
             f"{description}")
 
-        return self.bert_feature_extractor.extract_features(combined_text)
+        if not tokenize:
+            return {'shortName': short_name, 'longName': long_name, 'industry': industry, 'sector': sector,
+                    'description': description, 'combined_text': combined_text}
+
+        # Extract features from the combined text
+        tokenized_features = {'combined_text': (self.bert_feature_extractor.extract_features(combined_text)),
+                              'shortName': (self.bert_feature_extractor.extract_features(short_name)),
+                              'longName': (self.bert_feature_extractor.extract_features(long_name)),
+                              'industry': (self.bert_feature_extractor.extract_features(industry)),
+                              'sector': (self.bert_feature_extractor.extract_features(sector)),
+                              'description': (self.bert_feature_extractor.extract_features(description))}
+
+        data = {'shortName': short_name, 'longName': long_name, 'industry': industry, 'sector': sector,
+                'description': description, 'combined_text': combined_text, 'features': tokenized_features}
+        return data
+
+
+if __name__ == "__main__":
+    import pickle
+
+    dataset = build_dataset(tokenize=False, standardize=False, seeded=True)
+
+    # with open('filename.pkl', 'wb') as f:
+    #     pickle.dump(dataset, f)
+    pd.DataFrame(dataset[0]).to_csv("market_values.csv")
+    pd.DataFrame(dataset[1]).to_csv("symbol_info.csv")

@@ -88,35 +88,3 @@ class BertSimilarity:
         # Sort by similarity and return the top_n words
         sorted_words = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
         return sorted_words[:top_n]
-
-
-class EntityRelationAnalysis:
-    def __init__(self, model_name="yiyanghkust/finbert-tone"):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
-        self.nlp = spacy.load("en_core_web_sm")
-
-    def get_entities(self, text):
-        """Extract named entities using spaCy's NER."""
-        doc = self.nlp(text)
-        return [ent.text for ent in doc.ents]
-
-    def get_embedding(self, text):
-        inputs = self.tokenizer(text, return_tensors="pt", add_special_tokens=True, truncation=True, padding=True)
-        outputs = self.model(**inputs)
-        token_embeddings = outputs["last_hidden_state"][0]
-        return token_embeddings.mean(dim=0)
-
-    def find_related_entities(self, baseline_text, target_paragraph):
-        baseline_embedding = self.get_embedding(baseline_text)
-        entities = self.get_entities(target_paragraph)
-
-        similarities = {}
-        for entity in entities:
-            entity_embedding = self.get_embedding(entity)
-            similarity = cosine_similarity(baseline_embedding.unsqueeze(0), entity_embedding.unsqueeze(0)).item()
-            similarities[entity] = similarity
-
-        sorted_entities = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
-        return sorted_entities
-

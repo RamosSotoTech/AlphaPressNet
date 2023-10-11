@@ -1,13 +1,13 @@
 import pandas as pd
 from utils.yfinance_pipeline import StockInfo
-from utils.NewsManager import NewsManager
+from utils.NewsApiClientManager import NewsManager
 
 
 class CombinedFeatureExtractor:
 
     def __init__(self, ticker_symbol, period="1y", bert_model_name="yiyanghkust/finbert-tone"):
         self.stock_info = StockInfo(ticker_symbol, bert_model_name)
-        self.news_manager = NewsManager(bert_model_name=bert_model_name)
+        self.news_manager = NewsManager()
         self.period = period
 
     def _convert_article_to_dataframe(self, articles):
