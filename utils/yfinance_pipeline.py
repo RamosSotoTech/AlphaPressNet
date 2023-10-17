@@ -132,7 +132,12 @@ class StockInfo:
         data = self.ticker.history(period=period, start=start, end=end, auto_adjust=True)
 
         # Add a date column
-        data['Date'] = data.index
+        data['date'] = pd.to_datetime(data.index).strftime('%Y-%m-%d')
+        shutdown_start_date = pd.to_datetime('2018-12-22')
+        shutdown_end_date = pd.to_datetime('2019-01-25')
+
+        # Create the 'gov_shutdown' column to indicate the government shutdown period
+        data['gov_shutdown'] = (data['date'] >= shutdown_start_date) & (data['date'] <= shutdown_end_date)
 
         # Calculate and add moving averages
         for window in ma_windows:
@@ -205,5 +210,5 @@ if __name__ == "__main__":
 
     # with open('filename.pkl', 'wb') as f:
     #     pickle.dump(dataset, f)
-    pd.DataFrame(dataset[0]).to_csv("market_values.csv")
-    pd.DataFrame(dataset[1]).to_csv("symbol_info.csv")
+    pd.DataFrame(dataset[0]).to_csv("market_values.csv", index=False)
+    pd.DataFrame(dataset[1]).to_csv("symbol_info.csv", index=False)

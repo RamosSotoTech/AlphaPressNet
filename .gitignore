@@ -3,3 +3,4 @@ AlphaPressNet/.env
 *.pkl
 *.log
 *.csv
+*.xlsx

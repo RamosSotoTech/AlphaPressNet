@@ -3,6 +3,45 @@ from transformers import BertTokenizer, BertModel
 import torch
 from torch.nn.functional import cosine_similarity
 from transformers import AutoTokenizer, AutoModel
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+from typing import List
+
+
+def sort_by_cosine_similarity(events: List[str]) -> List[List[str]]:
+    """
+    Sorts a list of unique events based on their cosine similarity.
+
+    Args:
+        events (List[str]): List of unique events.
+
+    Returns:
+        List[List[str]]: A list of lists, where each inner list contains similar events.
+    """
+    # Create a TF-IDF Vectorizer to convert the events to numerical vectors
+    vectorizer = TfidfVectorizer()
+    event_vectors = vectorizer.fit_transform(events)
+
+    # Compute cosine similarity between each pair of events
+    similarity_matrix = cosine_similarity(event_vectors)
+
+    # Initialize list to store sorted events
+    sorted_events = []
+    processed_indices = set()
+
+    for i in range(len(events)):
+        if i in processed_indices:
+            continue
+
+        # Find indices of events similar to the ith event
+        similar_indices = np.where(similarity_matrix[i] > 0.5)[0]
+
+        # Add the similar events to the sorted list and mark their indices as processed
+        sorted_events.append([events[j] for j in similar_indices])
+        processed_indices.update(similar_indices)
+
+    return sorted_events
 
 
 class BertFeatureExtractor:
