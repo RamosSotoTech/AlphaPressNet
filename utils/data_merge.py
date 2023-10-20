@@ -10,13 +10,18 @@ def merge_datasets(financial_calendar_path, market_values_path, output_path):
     # Load the financial calendar and market values datasets
     df1 = pd.read_csv(financial_calendar_path)
     df2 = pd.read_csv(market_values_path)
-    df2 = df2[['date', 'Symbol', 'Close']]
 
     # Convert 'Date' column in df1 and df2 to datetime format, setting invalid parsing to NaT
     df1['date'] = pd.to_datetime(df1['date'], errors='coerce').dt.date
     df2['date'] = pd.to_datetime(df2['date'], errors='coerce').dt.date
+    df2.set_index('date', inplace=True)
 
-    # Merge the first 5 rows from each dataframe on the 'Date' column
+
+    # Create the 'gov_shutdown' column to indicate the government shutdown period
+    shutdown_start_date = pd.to_datetime('2018-12-22')
+    shutdown_end_date = pd.to_datetime('2019-01-25')
+    df2['gov_shutdown'] = (df2['date'] >= shutdown_start_date) & (df2['date'] <= shutdown_end_date)
+
     merged_df = pd.merge(df1, df2, on='date', how='outer')
 
     # Save the merged dataset

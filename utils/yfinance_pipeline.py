@@ -132,7 +132,7 @@ class StockInfo:
         data = self.ticker.history(period=period, start=start, end=end, auto_adjust=True)
 
         # Add a date column
-        data['date'] = pd.to_datetime(data.index).strftime('%Y-%m-%d')
+        data['date'] = pd.to_datetime(pd.to_datetime(data.index).strftime('%Y-%m-%d'))
         shutdown_start_date = pd.to_datetime('2018-12-22')
         shutdown_end_date = pd.to_datetime('2019-01-25')
 
@@ -156,7 +156,7 @@ class StockInfo:
         description = self.get_description()
         long_name = self.get_long_name()
         industry = self.get_industry()
-        sector = self.get_sector()  # Retrieve the sector
+        sector = self.get_sector()
         short_name = self.get_short_name()
 
         # Check if long_name and short_name are different
@@ -211,4 +211,4 @@ if __name__ == "__main__":
     # with open('filename.pkl', 'wb') as f:
     #     pickle.dump(dataset, f)
     pd.DataFrame(dataset[0]).to_csv("market_values.csv", index=False)
-    pd.DataFrame(dataset[1]).to_csv("symbol_info.csv", index=False)
+    pd.DataFrame(dataset[1]).to_csv("symbol_info.csv")
